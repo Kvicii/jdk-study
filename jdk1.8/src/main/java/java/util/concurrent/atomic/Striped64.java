@@ -211,8 +211,7 @@ abstract class Striped64 extends Number {
      * avoids the need for an extra field or function in LongAdder).
      * @param wasUncontended false if CAS failed before call
      */
-    final void longAccumulate(long x, LongBinaryOperator fn,
-                              boolean wasUncontended) {
+    final void longAccumulate(long x, LongBinaryOperator fn, boolean wasUncontended) {
         int h;
         if ((h = getProbe()) == 0) {
             ThreadLocalRandom.current(); // force initialization
@@ -222,17 +221,19 @@ abstract class Striped64 extends Number {
         boolean collide = false;                // True if last slot nonempty
         for (;;) {
             Cell[] as; Cell a; int n; long v;
+            // Cell数组不为空
             if ((as = cells) != null && (n = as.length) > 0) {
+                // 如果对应位置没有数据直接插入元素
                 if ((a = as[(n - 1) & h]) == null) {
                     if (cellsBusy == 0) {       // Try to attach new Cell
                         Cell r = new Cell(x);   // Optimistically create
+                        // 首先cas标志位，防止扩容以及插入元素
                         if (cellsBusy == 0 && casCellsBusy()) {
                             boolean created = false;
                             try {               // Recheck under lock
                                 Cell[] rs; int m, j;
-                                if ((rs = cells) != null &&
-                                    (m = rs.length) > 0 &&
-                                    rs[j = (m - 1) & h] == null) {
+                                // 然后插入数据，如果成功直接返回，否则标示发生了冲突，然后重试
+                                if ((rs = cells) != null && (m = rs.length) > 0 && rs[j = (m - 1) & h] == null) {
                                     rs[j] = r;
                                     created = true;
                                 }
@@ -246,15 +247,18 @@ abstract class Striped64 extends Number {
                     }
                     collide = false;
                 }
+                // 标识冲突标志位，进行重试
                 else if (!wasUncontended)       // CAS already known to fail
                     wasUncontended = true;      // Continue after rehash
-                else if (a.cas(v = a.value, ((fn == null) ? v + x :
-                                             fn.applyAsLong(v, x))))
+                // 尝试更新，成功直接返回
+                else if (a.cas(v = a.value, ((fn == null) ? v + x : fn.applyAsLong(v, x))))
                     break;
+                // 如果已经cell数组的大小已经超过了CPU核数，那么再扩容没意义了，直接重试，或者有别的线程扩容导致变更了数组，设置标志位，进行重试，避免一失败就扩容
                 else if (n >= NCPU || cells != as)
                     collide = false;            // At max size or stale
                 else if (!collide)
                     collide = true;
+                // 开始扩容
                 else if (cellsBusy == 0 && casCellsBusy()) {
                     try {
                         if (cells == as) {      // Expand table unless stale
@@ -269,8 +273,10 @@ abstract class Striped64 extends Number {
                     collide = false;
                     continue;                   // Retry with expanded table
                 }
+                // 扩容完成以后，重新初始化要更新的索引值，尽量保障可以更新成功
                 h = advanceProbe(h);
             }
+            // 初始化casCellsBusy()
             else if (cellsBusy == 0 && cells == as && casCellsBusy()) {
                 boolean init = false;
                 try {                           // Initialize table
@@ -286,8 +292,8 @@ abstract class Striped64 extends Number {
                 if (init)
                     break;
             }
-            else if (casBase(v = base, ((fn == null) ? v + x :
-                                        fn.applyAsLong(v, x))))
+            // 上述操作都不可行，尝试更新base数据
+            else if (casBase(v = base, ((fn == null) ? v + x : fn.applyAsLong(v, x))))
                 break;                          // Fall back on using base
         }
     }

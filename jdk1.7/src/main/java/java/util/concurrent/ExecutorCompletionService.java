@@ -45,7 +45,7 @@ package java.util.concurrent;
  * <p>
  *
  * <b>Usage Examples.</b>
- *
+ * <p>
  * Suppose you have a set of solvers for a certain problem, each
  * returning a value of some type {@code Result}, and would like to
  * run them concurrently, processing the results of each of them that
@@ -67,7 +67,7 @@ package java.util.concurrent;
  *             use(r);
  *     }
  * }}</pre>
- *
+ * <p>
  * Suppose instead that you would like to use the first non-null result
  * of the set of tasks, ignoring any that encounter exceptions,
  * and cancelling all other tasks when the first one is ready:
@@ -105,7 +105,11 @@ package java.util.concurrent;
  * }}</pre>
  */
 public class ExecutorCompletionService<V> implements CompletionService<V> {
+    // 执行任务的线程池对象
     private final Executor executor;
+    // 将Runnable或者Callable对象转换为FutureRunnable对象
+    // 由于不知道Executor具体是哪种实现，因此如果是AbstractExecutorService的子类，就将executor强制转换为AbstractExecutorService类型，只是表明能够直接调用newTaskFor()而已
+    // 如果不是AbstrackExecutorService类型，直接替换为FutureTask类型
     private final AbstractExecutorService aes;
     private final BlockingQueue<Future<V>> completionQueue;
 
@@ -117,7 +121,11 @@ public class ExecutorCompletionService<V> implements CompletionService<V> {
             super(task, null);
             this.task = task;
         }
-        protected void done() { completionQueue.add(task); }
+
+        protected void done() {
+            completionQueue.add(task);
+        }
+
         private final Future<V> task;
     }
 
@@ -148,7 +156,7 @@ public class ExecutorCompletionService<V> implements CompletionService<V> {
             throw new NullPointerException();
         this.executor = executor;
         this.aes = (executor instanceof AbstractExecutorService) ?
-            (AbstractExecutorService) executor : null;
+                (AbstractExecutorService) executor : null;
         this.completionQueue = new LinkedBlockingQueue<Future<V>>();
     }
 
@@ -157,12 +165,12 @@ public class ExecutorCompletionService<V> implements CompletionService<V> {
      * executor for base task execution and the supplied queue as its
      * completion queue.
      *
-     * @param executor the executor to use
+     * @param executor        the executor to use
      * @param completionQueue the queue to use as the completion queue
-     *        normally one dedicated for use by this service. This
-     *        queue is treated as unbounded -- failed attempted
-     *        {@code Queue.add} operations for completed taskes cause
-     *        them not to be retrievable.
+     *                        normally one dedicated for use by this service. This
+     *                        queue is treated as unbounded -- failed attempted
+     *                        {@code Queue.add} operations for completed taskes cause
+     *                        them not to be retrievable.
      * @throws NullPointerException if executor or completionQueue are {@code null}
      */
     public ExecutorCompletionService(Executor executor,
@@ -171,13 +179,15 @@ public class ExecutorCompletionService<V> implements CompletionService<V> {
             throw new NullPointerException();
         this.executor = executor;
         this.aes = (executor instanceof AbstractExecutorService) ?
-            (AbstractExecutorService) executor : null;
+                (AbstractExecutorService) executor : null;
         this.completionQueue = completionQueue;
     }
 
+    // submit提交任务只能使用execute()，使用submit()会将任务封装为FutureTask对象，不再是QueueingFuture任务了
     public Future<V> submit(Callable<V> task) {
         if (task == null) throw new NullPointerException();
         RunnableFuture<V> f = newTaskFor(task);
+        // 必须提交QueueingFuture对象，只有该对象才会在任务执行完毕后加入阻塞队列
         executor.execute(new QueueingFuture(f));
         return f;
     }
@@ -189,14 +199,18 @@ public class ExecutorCompletionService<V> implements CompletionService<V> {
         return f;
     }
 
+    // 阻塞式获取完成的任务
+    // 队列中有数据返回数据，没有阻塞等待
     public Future<V> take() throws InterruptedException {
         return completionQueue.take();
     }
 
+    // 非阻塞式获取完成的任务
     public Future<V> poll() {
         return completionQueue.poll();
     }
 
+    // 有限阻塞获取完成的任务
     public Future<V> poll(long timeout, TimeUnit unit)
             throws InterruptedException {
         return completionQueue.poll(timeout, unit);

@@ -34,6 +34,7 @@
  */
 
 package java.util.concurrent.atomic;
+
 import java.io.Serializable;
 
 /**
@@ -64,8 +65,15 @@ import java.io.Serializable;
  * compareTo} because instances are expected to be mutated, and so are
  * not useful as collection keys.
  *
- * @since 1.8
  * @author Doug Lea
+ * @since 1.8
+ */
+
+/**
+ * LongAdder在AtomicLong的基础上将单点的更新压力分散到各个节点
+ * 在低并发的时候通过对base的直接更新可以很好的保障和AtomicLong的性能基本保持一致
+ * 在高并发的时候通过分散提高了性能。
+ * 缺点是LongAdder在统计的时候如果有并发更新，可能导致统计的数据有误差
  */
 public class LongAdder extends Striped64 implements Serializable {
     private static final long serialVersionUID = 7249069246863182397L;
@@ -82,12 +90,15 @@ public class LongAdder extends Striped64 implements Serializable {
      * @param x the value to add
      */
     public void add(long x) {
-        Cell[] as; long b, v; int m; Cell a;
+        Cell[] as;
+        long b, v;
+        int m;
+        Cell a;
         if ((as = cells) != null || !casBase(b = base, b + x)) {
             boolean uncontended = true;
             if (as == null || (m = as.length - 1) < 0 ||
-                (a = as[getProbe() & m]) == null ||
-                !(uncontended = a.cas(v = a.value, v + x)))
+                    (a = as[getProbe() & m]) == null ||
+                    !(uncontended = a.cas(v = a.value, v + x)))
                 longAccumulate(x, null, uncontended);
         }
     }
@@ -115,8 +126,11 @@ public class LongAdder extends Striped64 implements Serializable {
      *
      * @return the sum
      */
+    // 当计数的时候，将base和各个cell元素里面的值进行叠加，从而得到计算总数的目的
+    // 问题是在于计数的同时如果修改cell元素，有可能导致计数的结果不准确
     public long sum() {
-        Cell[] as = cells; Cell a;
+        Cell[] as = cells;
+        Cell a;
         long sum = base;
         if (as != null) {
             for (int i = 0; i < as.length; ++i) {
@@ -135,7 +149,8 @@ public class LongAdder extends Striped64 implements Serializable {
      * known that no threads are concurrently updating.
      */
     public void reset() {
-        Cell[] as = cells; Cell a;
+        Cell[] as = cells;
+        Cell a;
         base = 0L;
         if (as != null) {
             for (int i = 0; i < as.length; ++i) {
@@ -156,7 +171,8 @@ public class LongAdder extends Striped64 implements Serializable {
      * @return the sum
      */
     public long sumThenReset() {
-        Cell[] as = cells; Cell a;
+        Cell[] as = cells;
+        Cell a;
         long sum = base;
         base = 0L;
         if (as != null) {
@@ -192,7 +208,7 @@ public class LongAdder extends Striped64 implements Serializable {
      * primitive conversion.
      */
     public int intValue() {
-        return (int)sum();
+        return (int) sum();
     }
 
     /**
@@ -200,7 +216,7 @@ public class LongAdder extends Striped64 implements Serializable {
      * after a widening primitive conversion.
      */
     public float floatValue() {
-        return (float)sum();
+        return (float) sum();
     }
 
     /**
@@ -208,7 +224,7 @@ public class LongAdder extends Striped64 implements Serializable {
      * primitive conversion.
      */
     public double doubleValue() {
-        return (double)sum();
+        return (double) sum();
     }
 
     /**
@@ -261,7 +277,7 @@ public class LongAdder extends Striped64 implements Serializable {
      * @throws java.io.InvalidObjectException always
      */
     private void readObject(java.io.ObjectInputStream s)
-        throws java.io.InvalidObjectException {
+            throws java.io.InvalidObjectException {
         throw new java.io.InvalidObjectException("Proxy required");
     }
 
