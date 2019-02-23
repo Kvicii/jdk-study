@@ -107,9 +107,12 @@ package java.util.concurrent;
 public class ExecutorCompletionService<V> implements CompletionService<V> {
     // 执行任务的线程池对象
     private final Executor executor;
-    // 将Runnable或者Callable对象转换为FutureRunnable对象
-    // 由于不知道Executor具体是哪种实现，因此如果是AbstractExecutorService的子类，就将executor强制转换为AbstractExecutorService类型，只是表明能够直接调用newTaskFor()而已
-    // 如果不是AbstrackExecutorService类型，直接替换为FutureTask类型
+    /**
+     * 将Runnable或者Callable对象转换为FutureRunnable对象
+     * 由于不知道Executor具体是哪种实现，因此如果是AbstractExecutorService的子类，就将executor强制转换为AbstractExecutorService类型，只是表明能够直接调用newTaskFor()而已
+     * 如果不是AbstrackExecutorService类型，直接替换为FutureTask类型
+     * aes只有两种可能
+     */
     private final AbstractExecutorService aes;
     private final BlockingQueue<Future<V>> completionQueue;
 
@@ -118,10 +121,17 @@ public class ExecutorCompletionService<V> implements CompletionService<V> {
      */
     private class QueueingFuture extends FutureTask<Void> {
         QueueingFuture(RunnableFuture<V> task) {
+            /*
+             * 将task对象(之前包装好的FutureTask对象)包装为QueueingFuture对象
+             * 执行QueueingFuture对象的run()-->执行QueueingFuture对象中的Callable中的call()-->call的返回值保存到FutureTask对象中的outcome
+             * 执行QueueingFuture对象中的Callable中的call()-->执行task对象(之前包装好的FutureTask对象)中的run()，返回null
+             */
             super(task, null);
             this.task = task;
         }
 
+        // 重写FutureTask中的done()
+        // 将task对象(之前包装好的FutureTask对象)添加到completionQueue，此时提交的任务已执行完毕
         protected void done() {
             completionQueue.add(task);
         }
@@ -129,6 +139,12 @@ public class ExecutorCompletionService<V> implements CompletionService<V> {
         private final Future<V> task;
     }
 
+    /**
+     * 将提交的任务包装为FutureTask对象
+     *
+     * @param task
+     * @return
+     */
     private RunnableFuture<V> newTaskFor(Callable<V> task) {
         if (aes == null)
             return new FutureTask<V>(task);
@@ -186,8 +202,13 @@ public class ExecutorCompletionService<V> implements CompletionService<V> {
     // submit提交任务只能使用execute()，使用submit()会将任务封装为FutureTask对象，不再是QueueingFuture任务了
     public Future<V> submit(Callable<V> task) {
         if (task == null) throw new NullPointerException();
+        // 将提交的任务包装为FutureTask对象
         RunnableFuture<V> f = newTaskFor(task);
         // 必须提交QueueingFuture对象，只有该对象才会在任务执行完毕后加入阻塞队列
+        /**
+         * 执行execute()-->在executor中执行QueueingFuture对象中的run()
+         * 执行QueueingFuture对象中的run()-->执行QueueingFuture对象中的Callable中的call()，将call()的返回值保存到outcome
+         */
         executor.execute(new QueueingFuture(f));
         return f;
     }
