@@ -188,6 +188,7 @@ public class LongAdder extends Striped64 implements Serializable {
 
     /**
      * Returns the String representation of the {@link #sum}.
+     *
      * @return the String representation of the {@link #sum}
      */
     public String toString() {
@@ -230,6 +231,7 @@ public class LongAdder extends Striped64 implements Serializable {
     /**
      * Serialization proxy, used to avoid reference to the non-public
      * Striped64 superclass in serialized forms.
+     *
      * @serial include
      */
     private static class SerializationProxy implements Serializable {
@@ -237,6 +239,7 @@ public class LongAdder extends Striped64 implements Serializable {
 
         /**
          * The current value returned by sum().
+         *
          * @serial
          */
         private final long value;
