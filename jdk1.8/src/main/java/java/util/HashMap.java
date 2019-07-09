@@ -393,7 +393,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
 
     /**
      * Returns a power of two size for the given target capacity.
-     * 通过移位计算 > cap 最小的2的次幂
+     * 通过移位计算得到 >= cap 最小的2的次幂
      */
     static final int tableSizeFor(int cap) {
         int n = cap - 1;
@@ -458,8 +458,16 @@ public class HashMap<K, V> extends AbstractMap<K, V>
     /**
      * The load factor for the hash table.
      * 哈希表负载因子
-     * 衡量HashMap满的程度 实时计算方式为size / capacity
-     * capacity是桶(数组)的数量
+     * 衡量HashMap满的程度 实时计算方式为size / capacity.capacity是桶(数组)的数量
+     *
+     * 调低负载因子时HashMap 所能容纳的键值对数量变少
+     * 扩容时重新将键值对存储新的桶数组里 键的键之间产生的碰撞会下降链表长度变短
+     * 此时 HashMap 的增删改查等操作的效率将会变高这里是典型的拿空间换时间
+     *
+     * 调高负载因子 HashMap所能容量的键值对数量变多 空间利用率高但碰撞率也高
+     * 链表变长效率随之降低 典型的拿时间换空间
+     *
+     * 大多数情况下默认的0.75在时间和空间代价上达到了平衡 所以不建议修改
      *
      * @serial
      */
