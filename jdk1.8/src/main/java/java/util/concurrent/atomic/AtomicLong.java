@@ -34,9 +34,11 @@
  */
 
 package java.util.concurrent.atomic;
-import java.util.function.LongUnaryOperator;
-import java.util.function.LongBinaryOperator;
+
 import sun.misc.Unsafe;
+
+import java.util.function.LongBinaryOperator;
+import java.util.function.LongUnaryOperator;
 
 /**
  * A {@code long} value that may be updated atomically.  See the
@@ -48,8 +50,8 @@ import sun.misc.Unsafe;
  * {@code Number} to allow uniform access by tools and utilities that
  * deal with numerically-based classes.
  *
- * @since 1.5
  * @author Doug Lea
+ * @since 1.5
  */
 public class AtomicLong extends Number implements java.io.Serializable {
     private static final long serialVersionUID = 1927816293512124184L;
@@ -63,6 +65,7 @@ public class AtomicLong extends Number implements java.io.Serializable {
      * compareAndSwap for longs. While the Unsafe.compareAndSwapLong
      * method works in either case, some constructions should be
      * handled at Java level to avoid locking user-visible locks.
+     * 判断JVM是否支持Long类型无锁CAS
      */
     static final boolean VM_SUPPORTS_LONG_CAS = VMSupportsCS8();
 
@@ -75,8 +78,10 @@ public class AtomicLong extends Number implements java.io.Serializable {
     static {
         try {
             valueOffset = unsafe.objectFieldOffset
-                (AtomicLong.class.getDeclaredField("value"));
-        } catch (Exception ex) { throw new Error(ex); }
+                    (AtomicLong.class.getDeclaredField("value"));
+        } catch (Exception ex) {
+            throw new Error(ex);
+        }
     }
 
     private volatile long value;
@@ -165,6 +170,8 @@ public class AtomicLong extends Number implements java.io.Serializable {
 
     /**
      * Atomically increments by one the current value.
+     * <p>
+     * 原子方式将value设置为原始值 + 1 并返回原始值
      *
      * @return the previous value
      */
@@ -193,6 +200,8 @@ public class AtomicLong extends Number implements java.io.Serializable {
 
     /**
      * Atomically increments by one the current value.
+     *
+     * 原子方式将value设置为原始值 + 1 并返回递增之后的值
      *
      * @return the updated value
      */
@@ -266,7 +275,7 @@ public class AtomicLong extends Number implements java.io.Serializable {
      * is applied with the current value as its first argument,
      * and the given update as the second argument.
      *
-     * @param x the update value
+     * @param x                   the update value
      * @param accumulatorFunction a side-effect-free function of two arguments
      * @return the previous value
      * @since 1.8
@@ -290,7 +299,7 @@ public class AtomicLong extends Number implements java.io.Serializable {
      * is applied with the current value as its first argument,
      * and the given update as the second argument.
      *
-     * @param x the update value
+     * @param x                   the update value
      * @param accumulatorFunction a side-effect-free function of two arguments
      * @return the updated value
      * @since 1.8
@@ -307,6 +316,7 @@ public class AtomicLong extends Number implements java.io.Serializable {
 
     /**
      * Returns the String representation of the current value.
+     *
      * @return the String representation of the current value
      */
     public String toString() {
@@ -316,10 +326,11 @@ public class AtomicLong extends Number implements java.io.Serializable {
     /**
      * Returns the value of this {@code AtomicLong} as an {@code int}
      * after a narrowing primitive conversion.
+     *
      * @jls 5.1.3 Narrowing Primitive Conversions
      */
     public int intValue() {
-        return (int)get();
+        return (int) get();
     }
 
     /**
@@ -332,19 +343,21 @@ public class AtomicLong extends Number implements java.io.Serializable {
     /**
      * Returns the value of this {@code AtomicLong} as a {@code float}
      * after a widening primitive conversion.
+     *
      * @jls 5.1.2 Widening Primitive Conversions
      */
     public float floatValue() {
-        return (float)get();
+        return (float) get();
     }
 
     /**
      * Returns the value of this {@code AtomicLong} as a {@code double}
      * after a widening primitive conversion.
+     *
      * @jls 5.1.2 Widening Primitive Conversions
      */
     public double doubleValue() {
-        return (double)get();
+        return (double) get();
     }
 
 }

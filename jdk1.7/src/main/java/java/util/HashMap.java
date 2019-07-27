@@ -25,7 +25,9 @@
 
 package java.util;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InvalidObjectException;
+import java.io.Serializable;
 
 /**
  * Hash table based implementation of the <tt>Map</tt> interface.  This
@@ -543,12 +545,16 @@ public class HashMap<K, V>
      * resize the map, but sets threshold to Integer.MAX_VALUE.
      * This has the effect of preventing future calls.
      *
+     * 相当于重新创建一个容量的table 将之前的元素全部转移到新的table 并替换掉原来的table
      * @param newCapacity the new capacity, MUST be a power of two;
      *                    must be greater than current capacity unless current
      *                    capacity is MAXIMUM_CAPACITY (in which case value
      *                    is irrelevant).
      */
     void resize(int newCapacity) {
+        /**
+         * 获取当前table容量 达到最大值时设置为int的最大值(2^31 - 1)
+         */
         Entry[] oldTable = table;
         int oldCapacity = oldTable.length;
         if (oldCapacity == MAXIMUM_CAPACITY) {
@@ -556,6 +562,9 @@ public class HashMap<K, V>
             return;
         }
 
+        /**
+         * 创建新数组将元素复制到新数组
+         */
         Entry[] newTable = new Entry[newCapacity];
         boolean oldAltHashing = useAltHashing;
         useAltHashing |= sun.misc.VM.isBooted() &&
@@ -563,6 +572,9 @@ public class HashMap<K, V>
         boolean rehash = oldAltHashing ^ useAltHashing;
         transfer(newTable, rehash);
         table = newTable;
+        /**
+         * 修改阈值
+         */
         threshold = (int) Math.min(newCapacity * loadFactor, MAXIMUM_CAPACITY + 1);
     }
 

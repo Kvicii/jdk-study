@@ -74,6 +74,8 @@ import java.io.Serializable;
  * 在低并发的时候通过对base的直接更新可以很好的保障和AtomicLong的性能基本保持一致
  * 在高并发的时候通过分散提高了性能。
  * 缺点是LongAdder在统计的时候如果有并发更新，可能导致统计的数据有误差
+ *
+ * LongAdder是LongAccumulator的一个特例
  */
 public class LongAdder extends Striped64 implements Serializable {
     private static final long serialVersionUID = 7249069246863182397L;
@@ -94,8 +96,16 @@ public class LongAdder extends Striped64 implements Serializable {
         long b, v;
         int m;
         Cell a;
+        /**
+         * Cell[]为空 在base基础上进行累加
+         */
         if ((as = cells) != null || !casBase(b = base, b + x)) {
             boolean uncontended = true;
+            /**
+             * 满足一定条件进行CAS
+             * getProbe()获取当前线程的threadLocalRandomProbe的值
+             * 该值初始值为0 在longAccumulate(long x, LongBinaryOperator fn, boolean wasUncontended)进行初始化
+             */
             if (as == null || (m = as.length - 1) < 0 ||
                     (a = as[getProbe() & m]) == null ||
                     !(uncontended = a.cas(v = a.value, v + x)))
@@ -123,11 +133,12 @@ public class LongAdder extends Striped64 implements Serializable {
      * updates returns an accurate result, but concurrent updates that
      * occur while the sum is being calculated might not be
      * incorporated.
+     * <p>
+     * 当计数的时候 将base和各个cell元素里面的值进行叠加 从而得到计算总数的目的
+     * 问题是在于计数的同时如果修改cell元素 有可能导致计数的结果不准确
      *
      * @return the sum
      */
-    // 当计数的时候，将base和各个cell元素里面的值进行叠加，从而得到计算总数的目的
-    // 问题是在于计数的同时如果修改cell元素，有可能导致计数的结果不准确
     public long sum() {
         Cell[] as = cells;
         Cell a;
@@ -147,6 +158,8 @@ public class LongAdder extends Striped64 implements Serializable {
      * effective if there are no concurrent updates.  Because this
      * method is intrinsically racy, it should only be used when it is
      * known that no threads are concurrently updating.
+     * <p>
+     * 重置
      */
     public void reset() {
         Cell[] as = cells;
@@ -167,6 +180,8 @@ public class LongAdder extends Striped64 implements Serializable {
      * updates concurrent with this method, the returned value is
      * <em>not</em> guaranteed to be the final value occurring before
      * the reset.
+     * <p>
+     * sum()的改造版本
      *
      * @return the sum
      */
@@ -197,6 +212,8 @@ public class LongAdder extends Striped64 implements Serializable {
 
     /**
      * Equivalent to {@link #sum}.
+     * <p>
+     * 等同于sum()
      *
      * @return the sum
      */
