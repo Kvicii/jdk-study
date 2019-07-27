@@ -97,10 +97,11 @@ import java.util.function.Consumer;
  * <p>This class is a member of the
  * <a href="{@docRoot}/../technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
+ * 无界非阻塞队列
  *
- * @since 1.5
- * @author Doug Lea
  * @param <E> the type of elements held in this collection
+ * @author Doug Lea
+ * @since 1.5
  */
 public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
         implements Queue<E>, java.io.Serializable {
@@ -212,9 +213,9 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
                 UNSAFE = sun.misc.Unsafe.getUnsafe();
                 Class<?> k = Node.class;
                 itemOffset = UNSAFE.objectFieldOffset
-                    (k.getDeclaredField("item"));
+                        (k.getDeclaredField("item"));
                 nextOffset = UNSAFE.objectFieldOffset
-                    (k.getDeclaredField("next"));
+                        (k.getDeclaredField("next"));
             } catch (Exception e) {
                 throw new Error(e);
             }
@@ -231,7 +232,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * Non-invariants:
      * - head.item may or may not be null.
      * - it is permitted for tail to lag behind head, that is, for tail
-     *   to not be reachable from head!
+     * to not be reachable from head!
      */
     private transient volatile Node<E> head;
 
@@ -244,7 +245,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * Non-invariants:
      * - tail.item may or may not be null.
      * - it is permitted for tail to lag behind head, that is, for tail
-     *   to not be reachable from head!
+     * to not be reachable from head!
      * - tail.next may or may not be self-pointing to tail.
      */
     private transient volatile Node<E> tail;
@@ -263,7 +264,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      *
      * @param c the collection of elements to initially contain
      * @throws NullPointerException if the specified collection or any
-     *         of its elements are null
+     *                              of its elements are null
      */
     public ConcurrentLinkedQueue(Collection<? extends E> c) {
         Node<E> h = null, t = null;
@@ -310,6 +311,8 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * Returns the successor of p, or the head node if p.next has been
      * linked to self, which will only be true if traversing with a
      * stale pointer that is now off the list.
+     * <p>
+     * 获取当前节点的next节点 如果是自引用节点则返回真正的头结点
      */
     final Node<E> succ(Node<E> p) {
         Node<E> next = p.next;
@@ -324,72 +327,99 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException if the specified element is null
      */
     public boolean offer(E e) {
+        /**
+         * 参数为null判断
+         * 否则由于是无界非阻塞队列 offer会一直添加null返回true
+         */
         checkNotNull(e);
         final Node<E> newNode = new Node<E>(e);
 
-        for (Node<E> t = tail, p = t;;) {
+        /**
+         * 执行路径(核心步骤:2.):
+         * 只有一个线程执行offer: 1 --> 2 --> return
+         * 超过一个线程执行offer: 线程A: 1 --> 2 --> return 线程B: 1 --> 自旋 --> 5 --> 自旋 --> 1 --> 2 --> return
+         * poll之后再offer: 存在自引用节点 4 --> 自旋 --> 1-- > 2 --> 3 --> return
+         */
+        for (Node<E> t = tail, p = t; ; ) {
             Node<E> q = p.next;
-            if (q == null) {
+            if (q == null) {    // 1.
                 // p is last node
-                if (p.casNext(null, newNode)) {
+                if (p.casNext(null, newNode)) { // 2.
                     // Successful CAS is the linearization point
                     // for e to become an element of this queue,
                     // and for newNode to become "live".
-                    if (p != t) // hop two nodes at a time
+                    if (p != t) //  3. hop two nodes at a time
                         casTail(t, newNode);  // Failure is OK.
                     return true;
                 }
                 // Lost CAS race to another thread; re-read next
-            }
-            else if (p == q)
+            } else if (p == q)
                 // We have fallen off list.  If tail is unchanged, it
                 // will also be off-list, in which case we need to
                 // jump to head, from which all live nodes are always
                 // reachable.  Else the new tail is a better bet.
-                p = (t != (t = tail)) ? t : head;
+                p = (t != (t = tail)) ? t : head;   // 4.
             else
                 // Check for tail updates after two hops.
-                p = (p != t && t != (t = tail)) ? t : q;
+                p = (p != t && t != (t = tail)) ? t : q;    // 5.
         }
     }
 
+    /**
+     * 获取并移除队列中的首节点
+     *
+     * @return
+     */
     public E poll() {
         restartFromHead:
-        for (;;) {
-            for (Node<E> h = head, p = h, q;;) {
+        for (; ; ) {
+            for (Node<E> h = head, p = h, q; ; ) {
                 E item = p.item;
 
-                if (item != null && p.casItem(item, null)) {
+                /**
+                 * 首节点有值 CAS替换为null
+                 */
+                if (item != null && p.casItem(item, null)) {    // 1.
                     // Successful CAS is the linearization point
                     // for item to be removed from this queue.
                     if (p != h) // hop two nodes at a time
-                        updateHead(h, ((q = p.next) != null) ? q : p);
+                        updateHead(h, ((q = p.next) != null) ? q : p);  // 2.
                     return item;
-                }
-                else if ((q = p.next) == null) {
-                    updateHead(h, p);
+                } else if ((q = p.next) == null) {
+                    /**
+                     * 当前队列为空返回null
+                     */
+                    updateHead(h, p);   // 3.
                     return null;
-                }
-                else if (p == q)
-                    continue restartFromHead;
+                } else if (p == q)
+                /**
+                 * 首节点被自引用 重新寻找新的队列头节点
+                 */
+                    continue restartFromHead;   // 4.
                 else
-                    p = q;
+                    p = q;  // 5.
             }
         }
     }
 
+    /**
+     * 获取但不移除首节点
+     * 1.当队列中只有一个哨兵节点 并且下个节点的值为null时 返回null
+     * 2.当队列至少有一个元素时 剔除哨兵节点 3 --> 自旋 --> 1
+     *
+     * @return
+     */
     public E peek() {
         restartFromHead:
-        for (;;) {
-            for (Node<E> h = head, p = h, q;;) {
+        for (; ; ) {
+            for (Node<E> h = head, p = h, q; ; ) {
                 E item = p.item;
-                if (item != null || (q = p.next) == null) {
+                if (item != null || (q = p.next) == null) { // 1.
                     updateHead(h, p);
                     return item;
-                }
-                else if (p == q)
+                } else if (p == q)  // 2.
                     continue restartFromHead;
-                else
+                else    // 3.
                     p = q;
             }
         }
@@ -402,17 +432,18 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * first(), but that would cost an extra volatile read of item,
      * and the need to add a retry loop to deal with the possibility
      * of losing a race to a concurrent poll().
+     * <p>
+     * 获取队列中除哨兵节点之外的第一个元素
      */
     Node<E> first() {
         restartFromHead:
-        for (;;) {
-            for (Node<E> h = head, p = h, q;;) {
+        for (; ; ) {
+            for (Node<E> h = head, p = h, q; ; ) {
                 boolean hasItem = (p.item != null);
                 if (hasItem || (q = p.next) == null) {
                     updateHead(h, p);
                     return hasItem ? p : null;
-                }
-                else if (p == q)
+                } else if (p == q)
                     continue restartFromHead;
                 else
                     p = q;
@@ -442,6 +473,8 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * of this method, the returned result may be inaccurate.  Thus,
      * this method is typically not very useful in concurrent
      * applications.
+     * <p>
+     * 没有同步 结果不准确
      *
      * @return the number of elements in this queue
      */
@@ -459,6 +492,8 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * Returns {@code true} if this queue contains the specified element.
      * More formally, returns {@code true} if and only if this queue contains
      * at least one element {@code e} such that {@code o.equals(e)}.
+     * <p>
+     * 和size()一样结果不准确
      *
      * @param o object to be checked for containment in this queue
      * @return {@code true} if this queue contains the specified element
@@ -480,6 +515,8 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * elements.
      * Returns {@code true} if this queue contained the specified element
      * (or equivalently, if this queue changed as a result of the call).
+     * <p>
+     * 队列存在钙元素则删除 同时存在多个删除第一个
      *
      * @param o element to be removed from this queue, if present
      * @return {@code true} if this queue changed as a result of the call
@@ -489,10 +526,16 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
         Node<E> pred = null;
         for (Node<E> p = first(); p != null; p = succ(p)) {
             E item = p.item;
+            /**
+             * 相等使用CAS设置为null 同时一个线程成功 其他线程必然失败循环查找队列中是否有匹配的其他元素
+             */
             if (item != null &&
-                o.equals(item) &&
-                p.casItem(item, null)) {
+                    o.equals(item) &&
+                    p.casItem(item, null)) {
                 Node<E> next = succ(p);
+                /**
+                 * 是否有next节点 并且next节点不为null则链接前驱节点到next节点
+                 */
                 if (pred != null && next != null)
                     pred.casNext(p, next);
                 return true;
@@ -510,8 +553,8 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      *
      * @param c the elements to be inserted into this queue
      * @return {@code true} if this queue changed as a result of the call
-     * @throws NullPointerException if the specified collection or any
-     *         of its elements are null
+     * @throws NullPointerException     if the specified collection or any
+     *                                  of its elements are null
      * @throws IllegalArgumentException if the collection is this queue
      */
     public boolean addAll(Collection<? extends E> c) {
@@ -535,7 +578,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
             return false;
 
         // Atomically append the chain at the tail of this collection
-        for (Node<E> t = tail, p = t;;) {
+        for (Node<E> t = tail, p = t; ; ) {
             Node<E> q = p.next;
             if (q == null) {
                 // p is last node
@@ -552,8 +595,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
                     return true;
                 }
                 // Lost CAS race to another thread; re-read next
-            }
-            else if (p == q)
+            } else if (p == q)
                 // We have fallen off list.  If tail is unchanged, it
                 // will also be off-list, in which case we need to
                 // jump to head, from which all live nodes are always
@@ -610,8 +652,8 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * The following code can be used to dump the queue into a newly
      * allocated array of {@code String}:
      *
-     *  <pre> {@code String[] y = x.toArray(new String[0]);}</pre>
-     *
+     * <pre> {@code String[] y = x.toArray(new String[0]);}</pre>
+     * <p>
      * Note that {@code toArray(new Object[0])} is identical in function to
      * {@code toArray()}.
      *
@@ -619,9 +661,9 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      *          be stored, if it is big enough; otherwise, a new array of the
      *          same runtime type is allocated for this purpose
      * @return an array containing all of the elements in this queue
-     * @throws ArrayStoreException if the runtime type of the specified array
-     *         is not a supertype of the runtime type of every element in
-     *         this queue
+     * @throws ArrayStoreException  if the runtime type of the specified array
+     *                              is not a supertype of the runtime type of every element in
+     *                              this queue
      * @throws NullPointerException if the specified array is null
      */
     @SuppressWarnings("unchecked")
@@ -632,7 +674,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
         for (p = first(); p != null && k < a.length; p = succ(p)) {
             E item = p.item;
             if (item != null)
-                a[k++] = (T)item;
+                a[k++] = (T) item;
         }
         if (p == null) {
             if (k < a.length)
@@ -703,7 +745,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
                 p = succ(nextNode);
             }
 
-            for (;;) {
+            for (; ; ) {
                 if (p == null) {
                     nextNode = null;
                     nextItem = null;
@@ -751,7 +793,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * the proper order, followed by a null
      */
     private void writeObject(java.io.ObjectOutputStream s)
-        throws java.io.IOException {
+            throws java.io.IOException {
 
         // Write out any hidden stuff
         s.defaultWriteObject();
@@ -769,13 +811,14 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
 
     /**
      * Reconstitutes this queue from a stream (that is, deserializes it).
+     *
      * @param s the stream
      * @throws ClassNotFoundException if the class of a serialized object
-     *         could not be found
-     * @throws java.io.IOException if an I/O error occurs
+     *                                could not be found
+     * @throws java.io.IOException    if an I/O error occurs
      */
     private void readObject(java.io.ObjectInputStream s)
-        throws java.io.IOException, ClassNotFoundException {
+            throws java.io.IOException, ClassNotFoundException {
         s.defaultReadObject();
 
         // Read in elements until trailing null sentinel found
@@ -797,13 +840,16 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
         tail = t;
     }
 
-    /** A customized variant of Spliterators.IteratorSpliterator */
+    /**
+     * A customized variant of Spliterators.IteratorSpliterator
+     */
     static final class CLQSpliterator<E> implements Spliterator<E> {
         static final int MAX_BATCH = 1 << 25;  // max batch array size;
         final ConcurrentLinkedQueue<E> queue;
         Node<E> current;    // current node; null until initialized
         int batch;          // batch size for splits
         boolean exhausted;  // true when no more nodes
+
         CLQSpliterator(ConcurrentLinkedQueue<E> queue) {
             this.queue = queue;
         }
@@ -814,8 +860,8 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
             int b = batch;
             int n = (b <= 0) ? 1 : (b >= MAX_BATCH) ? MAX_BATCH : b + 1;
             if (!exhausted &&
-                ((p = current) != null || (p = q.first()) != null) &&
-                p.next != null) {
+                    ((p = current) != null || (p = q.first()) != null) &&
+                    p.next != null) {
                 Object[] a = new Object[n];
                 int i = 0;
                 do {
@@ -829,8 +875,8 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
                 if (i > 0) {
                     batch = i;
                     return Spliterators.spliterator
-                        (a, 0, i, Spliterator.ORDERED | Spliterator.NONNULL |
-                         Spliterator.CONCURRENT);
+                            (a, 0, i, Spliterator.ORDERED | Spliterator.NONNULL |
+                                    Spliterator.CONCURRENT);
                 }
             }
             return null;
@@ -841,7 +887,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
             if (action == null) throw new NullPointerException();
             final ConcurrentLinkedQueue<E> q = this.queue;
             if (!exhausted &&
-                ((p = current) != null || (p = q.first()) != null)) {
+                    ((p = current) != null || (p = q.first()) != null)) {
                 exhausted = true;
                 do {
                     E e = p.item;
@@ -858,7 +904,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
             if (action == null) throw new NullPointerException();
             final ConcurrentLinkedQueue<E> q = this.queue;
             if (!exhausted &&
-                ((p = current) != null || (p = q.first()) != null)) {
+                    ((p = current) != null || (p = q.first()) != null)) {
                 E e;
                 do {
                     e = p.item;
@@ -875,11 +921,13 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
             return false;
         }
 
-        public long estimateSize() { return Long.MAX_VALUE; }
+        public long estimateSize() {
+            return Long.MAX_VALUE;
+        }
 
         public int characteristics() {
             return Spliterator.ORDERED | Spliterator.NONNULL |
-                Spliterator.CONCURRENT;
+                    Spliterator.CONCURRENT;
         }
     }
 
@@ -892,11 +940,9 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * <p>The {@code Spliterator} reports {@link Spliterator#CONCURRENT},
      * {@link Spliterator#ORDERED}, and {@link Spliterator#NONNULL}.
      *
-     * @implNote
-     * The {@code Spliterator} implements {@code trySplit} to permit limited
-     * parallelism.
-     *
      * @return a {@code Spliterator} over the elements in this queue
+     * @implNote The {@code Spliterator} implements {@code trySplit} to permit limited
+     * parallelism.
      * @since 1.8
      */
     @Override
@@ -927,14 +973,15 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
     private static final sun.misc.Unsafe UNSAFE;
     private static final long headOffset;
     private static final long tailOffset;
+
     static {
         try {
             UNSAFE = sun.misc.Unsafe.getUnsafe();
             Class<?> k = ConcurrentLinkedQueue.class;
             headOffset = UNSAFE.objectFieldOffset
-                (k.getDeclaredField("head"));
+                    (k.getDeclaredField("head"));
             tailOffset = UNSAFE.objectFieldOffset
-                (k.getDeclaredField("tail"));
+                    (k.getDeclaredField("tail"));
         } catch (Exception e) {
             throw new Error(e);
         }
