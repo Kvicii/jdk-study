@@ -34,15 +34,18 @@
  */
 
 package java.util.concurrent;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+
+import sun.security.util.SecurityConstants;
+
 import java.security.AccessControlContext;
+import java.security.AccessControlException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.security.PrivilegedExceptionAction;
 import java.security.PrivilegedActionException;
-import java.security.AccessControlException;
-import sun.security.util.SecurityConstants;
+import java.security.PrivilegedExceptionAction;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Factory and utility methods for {@link Executor}, {@link
@@ -65,8 +68,8 @@ import sun.security.util.SecurityConstants;
  *        in execution methods requiring {@code Callable}.
  * </ul>
  *
- * @since 1.5
  * @author Doug Lea
+ * @since 1.5
  */
 public class Executors {
 
@@ -87,8 +90,8 @@ public class Executors {
      */
     public static ExecutorService newFixedThreadPool(int nThreads) {
         return new ThreadPoolExecutor(nThreads, nThreads,
-                                      0L, TimeUnit.MILLISECONDS,
-                                      new LinkedBlockingQueue<Runnable>());
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<Runnable>());
     }
 
     /**
@@ -108,24 +111,25 @@ public class Executors {
      */
     public static ExecutorService newWorkStealingPool(int parallelism) {
         return new ForkJoinPool
-            (parallelism,
-             ForkJoinPool.defaultForkJoinWorkerThreadFactory,
-             null, true);
+                (parallelism,
+                        ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                        null, true);
     }
 
     /**
      * Creates a work-stealing thread pool using all
      * {@link Runtime#availableProcessors available processors}
      * as its target parallelism level.
+     *
      * @return the newly created thread pool
      * @see #newWorkStealingPool(int)
      * @since 1.8
      */
     public static ExecutorService newWorkStealingPool() {
         return new ForkJoinPool
-            (Runtime.getRuntime().availableProcessors(),
-             ForkJoinPool.defaultForkJoinWorkerThreadFactory,
-             null, true);
+                (Runtime.getRuntime().availableProcessors(),
+                        ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                        null, true);
     }
 
     /**
@@ -141,17 +145,17 @@ public class Executors {
      * exist until it is explicitly {@link ExecutorService#shutdown
      * shutdown}.
      *
-     * @param nThreads the number of threads in the pool
+     * @param nThreads      the number of threads in the pool
      * @param threadFactory the factory to use when creating new threads
      * @return the newly created thread pool
-     * @throws NullPointerException if threadFactory is null
+     * @throws NullPointerException     if threadFactory is null
      * @throws IllegalArgumentException if {@code nThreads <= 0}
      */
     public static ExecutorService newFixedThreadPool(int nThreads, ThreadFactory threadFactory) {
         return new ThreadPoolExecutor(nThreads, nThreads,
-                                      0L, TimeUnit.MILLISECONDS,
-                                      new LinkedBlockingQueue<Runnable>(),
-                                      threadFactory);
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<Runnable>(),
+                threadFactory);
     }
 
     /**
@@ -169,9 +173,9 @@ public class Executors {
      */
     public static ExecutorService newSingleThreadExecutor() {
         return new FinalizableDelegatedExecutorService
-            (new ThreadPoolExecutor(1, 1,
-                                    0L, TimeUnit.MILLISECONDS,
-                                    new LinkedBlockingQueue<Runnable>()));
+                (new ThreadPoolExecutor(1, 1,
+                        0L, TimeUnit.MILLISECONDS,
+                        new LinkedBlockingQueue<Runnable>()));
     }
 
     /**
@@ -183,17 +187,16 @@ public class Executors {
      * additional threads.
      *
      * @param threadFactory the factory to use when creating new
-     * threads
-     *
+     *                      threads
      * @return the newly created single-threaded Executor
      * @throws NullPointerException if threadFactory is null
      */
     public static ExecutorService newSingleThreadExecutor(ThreadFactory threadFactory) {
         return new FinalizableDelegatedExecutorService
-            (new ThreadPoolExecutor(1, 1,
-                                    0L, TimeUnit.MILLISECONDS,
-                                    new LinkedBlockingQueue<Runnable>(),
-                                    threadFactory));
+                (new ThreadPoolExecutor(1, 1,
+                        0L, TimeUnit.MILLISECONDS,
+                        new LinkedBlockingQueue<Runnable>(),
+                        threadFactory));
     }
 
     /**
@@ -214,8 +217,8 @@ public class Executors {
      */
     public static ExecutorService newCachedThreadPool() {
         return new ThreadPoolExecutor(0, Integer.MAX_VALUE,
-                                      60L, TimeUnit.SECONDS,
-                                      new SynchronousQueue<Runnable>());
+                60L, TimeUnit.SECONDS,
+                new SynchronousQueue<Runnable>());
     }
 
     /**
@@ -223,15 +226,16 @@ public class Executors {
      * will reuse previously constructed threads when they are
      * available, and uses the provided
      * ThreadFactory to create new threads when needed.
+     *
      * @param threadFactory the factory to use when creating new threads
      * @return the newly created thread pool
      * @throws NullPointerException if threadFactory is null
      */
     public static ExecutorService newCachedThreadPool(ThreadFactory threadFactory) {
         return new ThreadPoolExecutor(0, Integer.MAX_VALUE,
-                                      60L, TimeUnit.SECONDS,
-                                      new SynchronousQueue<Runnable>(),
-                                      threadFactory);
+                60L, TimeUnit.SECONDS,
+                new SynchronousQueue<Runnable>(),
+                threadFactory);
     }
 
     /**
@@ -245,11 +249,12 @@ public class Executors {
      * given time. Unlike the otherwise equivalent
      * {@code newScheduledThreadPool(1)} the returned executor is
      * guaranteed not to be reconfigurable to use additional threads.
+     *
      * @return the newly created scheduled executor
      */
     public static ScheduledExecutorService newSingleThreadScheduledExecutor() {
         return new DelegatedScheduledExecutorService
-            (new ScheduledThreadPoolExecutor(1));
+                (new ScheduledThreadPoolExecutor(1));
     }
 
     /**
@@ -263,21 +268,23 @@ public class Executors {
      * equivalent {@code newScheduledThreadPool(1, threadFactory)}
      * the returned executor is guaranteed not to be reconfigurable to
      * use additional threads.
+     *
      * @param threadFactory the factory to use when creating new
-     * threads
+     *                      threads
      * @return a newly created scheduled executor
      * @throws NullPointerException if threadFactory is null
      */
     public static ScheduledExecutorService newSingleThreadScheduledExecutor(ThreadFactory threadFactory) {
         return new DelegatedScheduledExecutorService
-            (new ScheduledThreadPoolExecutor(1, threadFactory));
+                (new ScheduledThreadPoolExecutor(1, threadFactory));
     }
 
     /**
      * Creates a thread pool that can schedule commands to run after a
      * given delay, or to execute periodically.
+     *
      * @param corePoolSize the number of threads to keep in the pool,
-     * even if they are idle
+     *                     even if they are idle
      * @return a newly created scheduled thread pool
      * @throws IllegalArgumentException if {@code corePoolSize < 0}
      */
@@ -288,13 +295,14 @@ public class Executors {
     /**
      * Creates a thread pool that can schedule commands to run after a
      * given delay, or to execute periodically.
-     * @param corePoolSize the number of threads to keep in the pool,
-     * even if they are idle
+     *
+     * @param corePoolSize  the number of threads to keep in the pool,
+     *                      even if they are idle
      * @param threadFactory the factory to use when the executor
-     * creates a new thread
+     *                      creates a new thread
      * @return a newly created scheduled thread pool
      * @throws IllegalArgumentException if {@code corePoolSize < 0}
-     * @throws NullPointerException if threadFactory is null
+     * @throws NullPointerException     if threadFactory is null
      */
     public static ScheduledExecutorService newScheduledThreadPool(
             int corePoolSize, ThreadFactory threadFactory) {
@@ -307,6 +315,7 @@ public class Executors {
      * other methods that might otherwise be accessible using
      * casts. This provides a way to safely "freeze" configuration and
      * disallow tuning of a given concrete implementation.
+     *
      * @param executor the underlying implementation
      * @return an {@code ExecutorService} instance
      * @throws NullPointerException if executor null
@@ -323,6 +332,7 @@ public class Executors {
      * not any other methods that might otherwise be accessible using
      * casts. This provides a way to safely "freeze" configuration and
      * disallow tuning of a given concrete implementation.
+     *
      * @param executor the underlying implementation
      * @return a {@code ScheduledExecutorService} instance
      * @throws NullPointerException if executor null
@@ -347,6 +357,7 @@ public class Executors {
      * <em>pool-N-thread-M</em>, where <em>N</em> is the sequence
      * number of this factory, and <em>M</em> is the sequence number
      * of the thread created by this factory.
+     *
      * @return a thread factory
      */
     public static ThreadFactory defaultThreadFactory() {
@@ -383,8 +394,8 @@ public class Executors {
      *
      * @return a thread factory
      * @throws AccessControlException if the current access control
-     * context does not have permission to both get and set context
-     * class loader
+     *                                context does not have permission to both get and set context
+     *                                class loader
      */
     public static ThreadFactory privilegedThreadFactory() {
         return new PrivilegedThreadFactory();
@@ -395,9 +406,10 @@ public class Executors {
      * called, runs the given task and returns the given result.  This
      * can be useful when applying methods requiring a
      * {@code Callable} to an otherwise resultless action.
-     * @param task the task to run
+     *
+     * @param task   the task to run
      * @param result the result to return
-     * @param <T> the type of the result
+     * @param <T>    the type of the result
      * @return a callable object
      * @throws NullPointerException if task null
      */
@@ -410,6 +422,7 @@ public class Executors {
     /**
      * Returns a {@link Callable} object that, when
      * called, runs the given task and returns {@code null}.
+     *
      * @param task the task to run
      * @return a callable object
      * @throws NullPointerException if task null
@@ -423,6 +436,7 @@ public class Executors {
     /**
      * Returns a {@link Callable} object that, when
      * called, runs the given privileged action and returns its result.
+     *
      * @param action the privileged action to run
      * @return a callable object
      * @throws NullPointerException if action null
@@ -431,13 +445,17 @@ public class Executors {
         if (action == null)
             throw new NullPointerException();
         return new Callable<Object>() {
-            public Object call() { return action.run(); }};
+            public Object call() {
+                return action.run();
+            }
+        };
     }
 
     /**
      * Returns a {@link Callable} object that, when
      * called, runs the given privileged exception action and returns
      * its result.
+     *
      * @param action the privileged exception action to run
      * @return a callable object
      * @throws NullPointerException if action null
@@ -446,7 +464,10 @@ public class Executors {
         if (action == null)
             throw new NullPointerException();
         return new Callable<Object>() {
-            public Object call() throws Exception { return action.run(); }};
+            public Object call() throws Exception {
+                return action.run();
+            }
+        };
     }
 
     /**
@@ -458,8 +479,9 @@ public class Executors {
      * under the selected permission settings holding within that
      * action; or if not possible, throw an associated {@link
      * AccessControlException}.
+     *
      * @param callable the underlying task
-     * @param <T> the type of the callable's result
+     * @param <T>      the type of the callable's result
      * @return a callable object
      * @throws NullPointerException if callable null
      */
@@ -482,12 +504,12 @@ public class Executors {
      * AccessControlException}.
      *
      * @param callable the underlying task
-     * @param <T> the type of the callable's result
+     * @param <T>      the type of the callable's result
      * @return a callable object
-     * @throws NullPointerException if callable null
+     * @throws NullPointerException   if callable null
      * @throws AccessControlException if the current access control
-     * context does not have permission to both set and get context
-     * class loader
+     *                                context does not have permission to both set and get context
+     *                                class loader
      */
     public static <T> Callable<T> privilegedCallableUsingCurrentClassLoader(Callable<T> callable) {
         if (callable == null)
@@ -503,10 +525,12 @@ public class Executors {
     static final class RunnableAdapter<T> implements Callable<T> {
         final Runnable task;
         final T result;
+
         RunnableAdapter(Runnable task, T result) {
             this.task = task;
             this.result = result;
         }
+
         public T call() {
             task.run();
             return result;
@@ -528,11 +552,11 @@ public class Executors {
         public T call() throws Exception {
             try {
                 return AccessController.doPrivileged(
-                    new PrivilegedExceptionAction<T>() {
-                        public T run() throws Exception {
-                            return task.call();
-                        }
-                    }, acc);
+                        new PrivilegedExceptionAction<T>() {
+                            public T run() throws Exception {
+                                return task.call();
+                            }
+                        }, acc);
             } catch (PrivilegedActionException e) {
                 throw e.getException();
             }
@@ -568,22 +592,22 @@ public class Executors {
         public T call() throws Exception {
             try {
                 return AccessController.doPrivileged(
-                    new PrivilegedExceptionAction<T>() {
-                        public T run() throws Exception {
-                            Thread t = Thread.currentThread();
-                            ClassLoader cl = t.getContextClassLoader();
-                            if (ccl == cl) {
-                                return task.call();
-                            } else {
-                                t.setContextClassLoader(ccl);
-                                try {
+                        new PrivilegedExceptionAction<T>() {
+                            public T run() throws Exception {
+                                Thread t = Thread.currentThread();
+                                ClassLoader cl = t.getContextClassLoader();
+                                if (ccl == cl) {
                                     return task.call();
-                                } finally {
-                                    t.setContextClassLoader(cl);
+                                } else {
+                                    t.setContextClassLoader(ccl);
+                                    try {
+                                        return task.call();
+                                    } finally {
+                                        t.setContextClassLoader(cl);
+                                    }
                                 }
                             }
-                        }
-                    }, acc);
+                        }, acc);
             } catch (PrivilegedActionException e) {
                 throw e.getException();
             }
@@ -594,24 +618,36 @@ public class Executors {
      * The default thread factory
      */
     static class DefaultThreadFactory implements ThreadFactory {
+        /**
+         * 记录线程工厂的个数
+         */
         private static final AtomicInteger poolNumber = new AtomicInteger(1);
         private final ThreadGroup group;
+        /**
+         * 记录每个线程工厂创建了多少线程
+         */
         private final AtomicInteger threadNumber = new AtomicInteger(1);
         private final String namePrefix;
 
         DefaultThreadFactory() {
             SecurityManager s = System.getSecurityManager();
             group = (s != null) ? s.getThreadGroup() :
-                                  Thread.currentThread().getThreadGroup();
+                    Thread.currentThread().getThreadGroup();
             namePrefix = "pool-" +
-                          poolNumber.getAndIncrement() +
-                         "-thread-";
+                    poolNumber.getAndIncrement() +
+                    "-thread-";
         }
 
+        /**
+         * 对线程的修饰
+         *
+         * @param r
+         * @return
+         */
         public Thread newThread(Runnable r) {
             Thread t = new Thread(group, r,
-                                  namePrefix + threadNumber.getAndIncrement(),
-                                  0);
+                    namePrefix + threadNumber.getAndIncrement(),
+                    0);
             if (t.isDaemon())
                 t.setDaemon(false);
             if (t.getPriority() != Thread.NORM_PRIORITY)
@@ -664,50 +700,77 @@ public class Executors {
      */
     static class DelegatedExecutorService extends AbstractExecutorService {
         private final ExecutorService e;
-        DelegatedExecutorService(ExecutorService executor) { e = executor; }
-        public void execute(Runnable command) { e.execute(command); }
-        public void shutdown() { e.shutdown(); }
-        public List<Runnable> shutdownNow() { return e.shutdownNow(); }
-        public boolean isShutdown() { return e.isShutdown(); }
-        public boolean isTerminated() { return e.isTerminated(); }
+
+        DelegatedExecutorService(ExecutorService executor) {
+            e = executor;
+        }
+
+        public void execute(Runnable command) {
+            e.execute(command);
+        }
+
+        public void shutdown() {
+            e.shutdown();
+        }
+
+        public List<Runnable> shutdownNow() {
+            return e.shutdownNow();
+        }
+
+        public boolean isShutdown() {
+            return e.isShutdown();
+        }
+
+        public boolean isTerminated() {
+            return e.isTerminated();
+        }
+
         public boolean awaitTermination(long timeout, TimeUnit unit)
-            throws InterruptedException {
+                throws InterruptedException {
             return e.awaitTermination(timeout, unit);
         }
+
         public Future<?> submit(Runnable task) {
             return e.submit(task);
         }
+
         public <T> Future<T> submit(Callable<T> task) {
             return e.submit(task);
         }
+
         public <T> Future<T> submit(Runnable task, T result) {
             return e.submit(task, result);
         }
+
         public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks)
-            throws InterruptedException {
+                throws InterruptedException {
             return e.invokeAll(tasks);
         }
+
         public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks,
                                              long timeout, TimeUnit unit)
-            throws InterruptedException {
+                throws InterruptedException {
             return e.invokeAll(tasks, timeout, unit);
         }
+
         public <T> T invokeAny(Collection<? extends Callable<T>> tasks)
-            throws InterruptedException, ExecutionException {
+                throws InterruptedException, ExecutionException {
             return e.invokeAny(tasks);
         }
+
         public <T> T invokeAny(Collection<? extends Callable<T>> tasks,
                                long timeout, TimeUnit unit)
-            throws InterruptedException, ExecutionException, TimeoutException {
+                throws InterruptedException, ExecutionException, TimeoutException {
             return e.invokeAny(tasks, timeout, unit);
         }
     }
 
     static class FinalizableDelegatedExecutorService
-        extends DelegatedExecutorService {
+            extends DelegatedExecutorService {
         FinalizableDelegatedExecutorService(ExecutorService executor) {
             super(executor);
         }
+
         protected void finalize() {
             super.shutdown();
         }
@@ -721,24 +784,32 @@ public class Executors {
             extends DelegatedExecutorService
             implements ScheduledExecutorService {
         private final ScheduledExecutorService e;
+
         DelegatedScheduledExecutorService(ScheduledExecutorService executor) {
             super(executor);
             e = executor;
         }
+
         public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
             return e.schedule(command, delay, unit);
         }
+
         public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) {
             return e.schedule(callable, delay, unit);
         }
+
         public ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit) {
             return e.scheduleAtFixedRate(command, initialDelay, period, unit);
         }
+
         public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit) {
             return e.scheduleWithFixedDelay(command, initialDelay, delay, unit);
         }
     }
 
-    /** Cannot instantiate. */
-    private Executors() {}
+    /**
+     * Cannot instantiate.
+     */
+    private Executors() {
+    }
 }
