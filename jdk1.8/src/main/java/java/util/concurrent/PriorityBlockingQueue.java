@@ -35,8 +35,6 @@
 
 package java.util.concurrent;
 
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.AbstractQueue;
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,6 +45,8 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.SortedSet;
 import java.util.Spliterator;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 /**
@@ -78,7 +78,7 @@ import java.util.function.Consumer;
  * tie-breaking to comparable elements. To use it, you would insert a
  * {@code new FIFOEntry(anEntry)} instead of a plain entry object.
  *
- *  <pre> {@code
+ * <pre> {@code
  * class FIFOEntry<E extends Comparable<? super E>>
  *     implements Comparable<FIFOEntry<E>> {
  *   static final AtomicLong seq = new AtomicLong(0);
@@ -101,13 +101,13 @@ import java.util.function.Consumer;
  * <a href="{@docRoot}/../technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
  *
- * @since 1.5
- * @author Doug Lea
  * @param <E> the type of elements held in this collection
+ * @author Doug Lea
+ * @since 1.5
  */
 @SuppressWarnings("unchecked")
 public class PriorityBlockingQueue<E> extends AbstractQueue<E>
-    implements BlockingQueue<E>, java.io.Serializable {
+        implements BlockingQueue<E>, java.io.Serializable {
     private static final long serialVersionUID = 5595510919245408276L;
 
     /*
@@ -146,6 +146,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * natural ordering, if comparator is null: For each node n in the
      * heap and each descendant d of n, n <= d.  The element with the
      * lowest value is in queue[0], assuming the queue is nonempty.
+     * 存放队列元素
      */
     private transient Object[] queue;
 
@@ -172,6 +173,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
 
     /**
      * Spinlock for allocation, acquired via CAS.
+     * 自旋锁 状态为0: 当前没有进行扩容 状态为1: 当前正在扩容
      */
     private transient volatile int allocationSpinLock;
 
@@ -198,7 +200,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      *
      * @param initialCapacity the initial capacity for this priority queue
      * @throws IllegalArgumentException if {@code initialCapacity} is less
-     *         than 1
+     *                                  than 1
      */
     public PriorityBlockingQueue(int initialCapacity) {
         this(initialCapacity, null);
@@ -210,11 +212,11 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * comparator.
      *
      * @param initialCapacity the initial capacity for this priority queue
-     * @param  comparator the comparator that will be used to order this
-     *         priority queue.  If {@code null}, the {@linkplain Comparable
-     *         natural ordering} of the elements will be used.
+     * @param comparator      the comparator that will be used to order this
+     *                        priority queue.  If {@code null}, the {@linkplain Comparable
+     *                        natural ordering} of the elements will be used.
      * @throws IllegalArgumentException if {@code initialCapacity} is less
-     *         than 1
+     *                                  than 1
      */
     public PriorityBlockingQueue(int initialCapacity,
                                  Comparator<? super E> comparator) {
@@ -234,13 +236,13 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * Otherwise, this priority queue will be ordered according to the
      * {@linkplain Comparable natural ordering} of its elements.
      *
-     * @param  c the collection whose elements are to be placed
-     *         into this priority queue
-     * @throws ClassCastException if elements of the specified collection
-     *         cannot be compared to one another according to the priority
-     *         queue's ordering
+     * @param c the collection whose elements are to be placed
+     *          into this priority queue
+     * @throws ClassCastException   if elements of the specified collection
+     *                              cannot be compared to one another according to the priority
+     *                              queue's ordering
      * @throws NullPointerException if the specified collection or any
-     *         of its elements are null
+     *                              of its elements are null
      */
     public PriorityBlockingQueue(Collection<? extends E> c) {
         this.lock = new ReentrantLock();
@@ -251,10 +253,9 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
             SortedSet<? extends E> ss = (SortedSet<? extends E>) c;
             this.comparator = (Comparator<? super E>) ss.comparator();
             heapify = false;
-        }
-        else if (c instanceof PriorityBlockingQueue<?>) {
+        } else if (c instanceof PriorityBlockingQueue<?>) {
             PriorityBlockingQueue<? extends E> pq =
-                (PriorityBlockingQueue<? extends E>) c;
+                    (PriorityBlockingQueue<? extends E>) c;
             this.comparator = (Comparator<? super E>) pq.comparator();
             screen = false;
             if (pq.getClass() == PriorityBlockingQueue.class) // exact match
@@ -282,19 +283,22 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * on contention (which we expect to be rare). Call only while
      * holding lock.
      *
-     * @param array the heap array
+     * @param array  the heap array
      * @param oldCap the length of the array
      */
     private void tryGrow(Object[] array, int oldCap) {
+        /**
+         * 此处扩容不释放锁也是可行的 但是在扩容期间始终持有锁 进出队列操作不能进行 降低了并发性
+         */
         lock.unlock(); // must release and then re-acquire main lock
         Object[] newArray = null;
         if (allocationSpinLock == 0 &&
-            UNSAFE.compareAndSwapInt(this, allocationSpinLockOffset,
-                                     0, 1)) {
+                UNSAFE.compareAndSwapInt(this, allocationSpinLockOffset,
+                        0, 1)) {
             try {
                 int newCap = oldCap + ((oldCap < 64) ?
-                                       (oldCap + 2) : // grow faster if small
-                                       (oldCap >> 1));
+                        (oldCap + 2) : // grow faster if small
+                        (oldCap >> 1));
                 if (newCap - MAX_ARRAY_SIZE > 0) {    // possible overflow
                     int minCap = oldCap + 1;
                     if (minCap < 0 || minCap > MAX_ARRAY_SIZE)
@@ -304,9 +308,15 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
                 if (newCap > oldCap && queue == array)
                     newArray = new Object[newCap];
             } finally {
+                /**
+                 * volatile变量且只能有一个线程获取到该变量进行修改
+                 */
                 allocationSpinLock = 0;
             }
         }
+        /**
+         * 第一个线程CAS成功执行上述代码时 第二个线程会进入这段代码 然后第二个线程让出CPU尽量让第一个线程扩容后获取锁 但并不能得到保证
+         */
         if (newArray == null) // back off if another thread is allocating
             Thread.yield();
         lock.lock();
@@ -342,15 +352,15 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * Inserts item x at position k, maintaining heap invariant by
      * promoting x up the tree until it is greater than or equal to
      * its parent, or is the root.
-     *
+     * <p>
      * To simplify and speed up coercions and comparisons. the
      * Comparable and Comparator versions are separated into different
      * methods that are otherwise identical. (Similarly for siftDown.)
      * These methods are static, with heap state as arguments, to
      * simplify use in light of possible comparator exceptions.
      *
-     * @param k the position to fill
-     * @param x the item to insert
+     * @param k     the position to fill
+     * @param x     the item to insert
      * @param array the heap array
      */
     private static <T> void siftUpComparable(int k, T x, Object[] array) {
@@ -367,7 +377,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
     }
 
     private static <T> void siftUpUsingComparator(int k, T x, Object[] array,
-                                       Comparator<? super T> cmp) {
+                                                  Comparator<? super T> cmp) {
         while (k > 0) {
             int parent = (k - 1) >>> 1;
             Object e = array[parent];
@@ -383,23 +393,25 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * Inserts item x at position k, maintaining heap invariant by
      * demoting x down the tree repeatedly until it is less than or
      * equal to its children or is a leaf.
+     * <p>
+     * 重新调整堆为最大堆或最小堆
      *
-     * @param k the position to fill
-     * @param x the item to insert
+     * @param k     the position to fill
+     * @param x     the item to insert
      * @param array the heap array
-     * @param n heap size
+     * @param n     heap size
      */
     private static <T> void siftDownComparable(int k, T x, Object[] array,
                                                int n) {
         if (n > 0) {
-            Comparable<? super T> key = (Comparable<? super T>)x;
+            Comparable<? super T> key = (Comparable<? super T>) x;
             int half = n >>> 1;           // loop while a non-leaf
             while (k < half) {
                 int child = (k << 1) + 1; // assume left child is least
                 Object c = array[child];
                 int right = child + 1;
                 if (right < n &&
-                    ((Comparable<? super T>) c).compareTo((T) array[right]) > 0)
+                        ((Comparable<? super T>) c).compareTo((T) array[right]) > 0)
                     c = array[child = right];
                 if (key.compareTo((T) c) <= 0)
                     break;
@@ -442,8 +454,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
         if (cmp == null) {
             for (int i = half; i >= 0; i--)
                 siftDownComparable(i, (E) array[i], array, n);
-        }
-        else {
+        } else {
             for (int i = half; i >= 0; i--)
                 siftDownUsingComparator(i, (E) array[i], array, n, cmp);
         }
@@ -454,9 +465,9 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      *
      * @param e the element to add
      * @return {@code true} (as specified by {@link Collection#add})
-     * @throws ClassCastException if the specified element cannot be compared
-     *         with elements currently in the priority queue according to the
-     *         priority queue's ordering
+     * @throws ClassCastException   if the specified element cannot be compared
+     *                              with elements currently in the priority queue according to the
+     *                              priority queue's ordering
      * @throws NullPointerException if the specified element is null
      */
     public boolean add(E e) {
@@ -469,9 +480,9 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      *
      * @param e the element to add
      * @return {@code true} (as specified by {@link Queue#offer})
-     * @throws ClassCastException if the specified element cannot be compared
-     *         with elements currently in the priority queue according to the
-     *         priority queue's ordering
+     * @throws ClassCastException   if the specified element cannot be compared
+     *                              with elements currently in the priority queue according to the
+     *                              priority queue's ordering
      * @throws NullPointerException if the specified element is null
      */
     public boolean offer(E e) {
@@ -481,14 +492,27 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
         lock.lock();
         int n, cap;
         Object[] array;
+        /**
+         * 当前元素个数 >= 队列容量 进行扩容
+         * 当线程进行扩容时 其他线程原地自旋该代码检查是否扩容完毕
+         */
         while ((n = size) >= (cap = (array = queue).length))
             tryGrow(array, cap);
         try {
             Comparator<? super E> cmp = comparator;
+            /**
+             * 使用默认比较器
+             */
             if (cmp == null)
                 siftUpComparable(n, e, array);
             else
+            /**
+             * 自定义比较器
+             */
                 siftUpUsingComparator(n, e, array, cmp);
+            /**
+             * 队列元素数 + 1 激活由于take加入条件队列阻塞的一个线程
+             */
             size = n + 1;
             notEmpty.signal();
         } finally {
@@ -502,9 +526,9 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * As the queue is unbounded, this method will never block.
      *
      * @param e the element to add
-     * @throws ClassCastException if the specified element cannot be compared
-     *         with elements currently in the priority queue according to the
-     *         priority queue's ordering
+     * @throws ClassCastException   if the specified element cannot be compared
+     *                              with elements currently in the priority queue according to the
+     *                              priority queue's ordering
      * @throws NullPointerException if the specified element is null
      */
     public void put(E e) {
@@ -516,14 +540,14 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * As the queue is unbounded, this method will never block or
      * return {@code false}.
      *
-     * @param e the element to add
+     * @param e       the element to add
      * @param timeout This parameter is ignored as the method never blocks
-     * @param unit This parameter is ignored as the method never blocks
+     * @param unit    This parameter is ignored as the method never blocks
      * @return {@code true} (as specified by
-     *  {@link BlockingQueue#offer(Object,long,TimeUnit) BlockingQueue.offer})
-     * @throws ClassCastException if the specified element cannot be compared
-     *         with elements currently in the priority queue according to the
-     *         priority queue's ordering
+     * {@link BlockingQueue#offer(Object, long, TimeUnit) BlockingQueue.offer})
+     * @throws ClassCastException   if the specified element cannot be compared
+     *                              with elements currently in the priority queue according to the
+     *                              priority queue's ordering
      * @throws NullPointerException if the specified element is null
      */
     public boolean offer(E e, long timeout, TimeUnit unit) {
@@ -545,7 +569,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
         lock.lockInterruptibly();
         E result;
         try {
-            while ( (result = dequeue()) == null)
+            while ((result = dequeue()) == null)
                 notEmpty.await();
         } finally {
             lock.unlock();
@@ -559,7 +583,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
         lock.lockInterruptibly();
         E result;
         try {
-            while ( (result = dequeue()) == null && nanos > 0)
+            while ((result = dequeue()) == null && nanos > 0)
                 nanos = notEmpty.awaitNanos(nanos);
         } finally {
             lock.unlock();
@@ -583,8 +607,8 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * natural ordering} of its elements.
      *
      * @return the comparator used to order the elements in this queue,
-     *         or {@code null} if this queue uses the natural
-     *         ordering of its elements
+     * or {@code null} if this queue uses the natural
+     * ordering of its elements
      */
     public Comparator<? super E> comparator() {
         return comparator;
@@ -603,6 +627,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Always returns {@code Integer.MAX_VALUE} because
      * a {@code PriorityBlockingQueue} is not capacity constrained.
+     *
      * @return {@code Integer.MAX_VALUE} always
      */
     public int remainingCapacity() {
@@ -829,8 +854,8 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * The following code can be used to dump the queue into a newly
      * allocated array of {@code String}:
      *
-     *  <pre> {@code String[] y = x.toArray(new String[0]);}</pre>
-     *
+     * <pre> {@code String[] y = x.toArray(new String[0]);}</pre>
+     * <p>
      * Note that {@code toArray(new Object[0])} is identical in function to
      * {@code toArray()}.
      *
@@ -838,9 +863,9 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      *          be stored, if it is big enough; otherwise, a new array of the
      *          same runtime type is allocated for this purpose
      * @return an array containing all of the elements in this queue
-     * @throws ArrayStoreException if the runtime type of the specified array
-     *         is not a supertype of the runtime type of every element in
-     *         this queue
+     * @throws ArrayStoreException  if the runtime type of the specified array
+     *                              is not a supertype of the runtime type of every element in
+     *                              this queue
      * @throws NullPointerException if the specified array is null
      */
     public <T> T[] toArray(T[] a) {
@@ -894,7 +919,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
             if (cursor >= array.length)
                 throw new NoSuchElementException();
             lastRet = cursor;
-            return (E)array[cursor++];
+            return (E) array[cursor++];
         }
 
         public void remove() {
@@ -907,7 +932,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
 
     /**
      * Saves this queue to a stream (that is, serializes it).
-     *
+     * <p>
      * For compatibility with previous version of this class, elements
      * are first copied to a java.util.PriorityQueue, which is then
      * serialized.
@@ -916,7 +941,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * @throws java.io.IOException if an I/O error occurs
      */
     private void writeObject(java.io.ObjectOutputStream s)
-        throws java.io.IOException {
+            throws java.io.IOException {
         lock.lock();
         try {
             // avoid zero capacity argument
@@ -931,13 +956,14 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
 
     /**
      * Reconstitutes this queue from a stream (that is, deserializes it).
+     *
      * @param s the stream
      * @throws ClassNotFoundException if the class of a serialized object
-     *         could not be found
-     * @throws java.io.IOException if an I/O error occurs
+     *                                could not be found
+     * @throws java.io.IOException    if an I/O error occurs
      */
     private void readObject(java.io.ObjectInputStream s)
-        throws java.io.IOException, ClassNotFoundException {
+            throws java.io.IOException, ClassNotFoundException {
         try {
             s.defaultReadObject();
             this.queue = new Object[q.size()];
@@ -974,19 +1000,22 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
         public Spliterator<E> trySplit() {
             int hi = getFence(), lo = index, mid = (lo + hi) >>> 1;
             return (lo >= mid) ? null :
-                new PBQSpliterator<E>(queue, array, lo, index = mid);
+                    new PBQSpliterator<E>(queue, array, lo, index = mid);
         }
 
         @SuppressWarnings("unchecked")
         public void forEachRemaining(Consumer<? super E> action) {
-            Object[] a; int i, hi; // hoist accesses and checks from loop
+            Object[] a;
+            int i, hi; // hoist accesses and checks from loop
             if (action == null)
                 throw new NullPointerException();
             if ((a = array) == null)
                 fence = (a = queue.toArray()).length;
             if ((hi = fence) <= a.length &&
-                (i = index) >= 0 && i < (index = hi)) {
-                do { action.accept((E)a[i]); } while (++i < hi);
+                    (i = index) >= 0 && i < (index = hi)) {
+                do {
+                    action.accept((E) a[i]);
+                } while (++i < hi);
             }
         }
 
@@ -1001,7 +1030,9 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
             return false;
         }
 
-        public long estimateSize() { return (long)(getFence() - index); }
+        public long estimateSize() {
+            return (long) (getFence() - index);
+        }
 
         public int characteristics() {
             return Spliterator.NONNULL | Spliterator.SIZED | Spliterator.SUBSIZED;
@@ -1017,10 +1048,8 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
      * <p>The {@code Spliterator} reports {@link Spliterator#SIZED} and
      * {@link Spliterator#NONNULL}.
      *
-     * @implNote
-     * The {@code Spliterator} additionally reports {@link Spliterator#SUBSIZED}.
-     *
      * @return a {@code Spliterator} over the elements in this queue
+     * @implNote The {@code Spliterator} additionally reports {@link Spliterator#SUBSIZED}.
      * @since 1.8
      */
     public Spliterator<E> spliterator() {
@@ -1030,12 +1059,13 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
     // Unsafe mechanics
     private static final sun.misc.Unsafe UNSAFE;
     private static final long allocationSpinLockOffset;
+
     static {
         try {
             UNSAFE = sun.misc.Unsafe.getUnsafe();
             Class<?> k = PriorityBlockingQueue.class;
             allocationSpinLockOffset = UNSAFE.objectFieldOffset
-                (k.getDeclaredField("allocationSpinLock"));
+                    (k.getDeclaredField("allocationSpinLock"));
         } catch (Exception e) {
             throw new Error(e);
         }
