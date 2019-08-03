@@ -84,6 +84,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
      * states use cheaper ordered/lazy writes because values are unique
      * and cannot be further modified.
      * <p>
+     * 任务状态
      * Possible state transitions:
      * NEW -> COMPLETING -> NORMAL
      * NEW -> COMPLETING -> EXCEPTIONAL
@@ -91,12 +92,33 @@ public class FutureTask<V> implements RunnableFuture<V> {
      * NEW -> INTERRUPTING -> INTERRUPTED
      */
     private volatile int state;
+    /**
+     * 初始状态
+     */
     private static final int NEW = 0;
+    /**
+     * 执行中状态
+     */
     private static final int COMPLETING = 1;
+    /**
+     * 正常运行结束状态
+     */
     private static final int NORMAL = 2;
+    /**
+     * 运行中异常
+     */
     private static final int EXCEPTIONAL = 3;
+    /**
+     * 任务被取消
+     */
     private static final int CANCELLED = 4;
+    /**
+     * 任务正在被中断
+     */
     private static final int INTERRUPTING = 5;
+    /**
+     * 任务已经被中断
+     */
     private static final int INTERRUPTED = 6;
 
     /**
@@ -158,6 +180,9 @@ public class FutureTask<V> implements RunnableFuture<V> {
      * @throws NullPointerException if the runnable is null
      */
     public FutureTask(Runnable runnable, V result) {
+        /**
+         * 将Runnable转换为Callable
+         */
         this.callable = Executors.callable(runnable, result);
         this.state = NEW;       // ensure visibility of callable
     }
@@ -237,8 +262,14 @@ public class FutureTask<V> implements RunnableFuture<V> {
      * @param v the value
      */
     protected void set(V v) {
+        /**
+         * 通过CAS将任务状态置为COMPLETING
+         */
         if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) {
             outcome = v;
+            /**
+             * 设置当前任务状态为NORMAL 正常结束
+             */
             UNSAFE.putOrderedInt(this, stateOffset, NORMAL); // final state
             finishCompletion();
         }
@@ -263,9 +294,10 @@ public class FutureTask<V> implements RunnableFuture<V> {
     }
 
     public void run() {
-        if (state != NEW ||
-                !UNSAFE.compareAndSwapObject(this, runnerOffset,
-                        null, Thread.currentThread()))
+        /**
+         * 判断任务状态
+         */
+        if (state != NEW || !UNSAFE.compareAndSwapObject(this, runnerOffset, null, Thread.currentThread()))
             return;
         try {
             Callable<V> c = callable;
@@ -305,9 +337,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
      * @return {@code true} if successfully run and reset
      */
     protected boolean runAndReset() {
-        if (state != NEW ||
-                !UNSAFE.compareAndSwapObject(this, runnerOffset,
-                        null, Thread.currentThread()))
+        if (state != NEW || !UNSAFE.compareAndSwapObject(this, runnerOffset, null, Thread.currentThread()))
             return false;
         boolean ran = false;
         int s = state;
@@ -331,6 +361,9 @@ public class FutureTask<V> implements RunnableFuture<V> {
             if (s >= INTERRUPTING)
                 handlePossibleCancellationInterrupt(s);
         }
+        /**
+         * 当前任务正常执行完毕并且任务状态为NEW return true
+         */
         return ran && s == NEW;
     }
 
