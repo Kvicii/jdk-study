@@ -34,6 +34,7 @@
  */
 
 package java.util.concurrent;
+
 import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 
 /**
@@ -150,8 +151,8 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * actions following a successful return from a corresponding
  * {@code await()} in another thread.
  *
- * @since 1.5
  * @author Doug Lea
+ * @since 1.5
  */
 public class CountDownLatch {
     /**
@@ -175,11 +176,18 @@ public class CountDownLatch {
 
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
-            for (;;) {
+            /**
+             * 循环CAS 直到当前线程成功的将state - 1并更新了state
+             */
+            for (; ; ) {
                 int c = getState();
                 if (c == 0)
                     return false;
-                int nextc = c-1;
+                int nextc = c - 1;
+                /**
+                 * 如果是最后一个线程执行则return true
+                 * 除此之外 还需要将因await()阻塞的线程唤醒
+                 */
                 if (compareAndSetState(c, nextc))
                     return nextc == 0;
             }
@@ -192,7 +200,7 @@ public class CountDownLatch {
      * Constructs a {@code CountDownLatch} initialized with the given count.
      *
      * @param count the number of times {@link #countDown} must be invoked
-     *        before threads can pass through {@link #await}
+     *              before threads can pass through {@link #await}
      * @throws IllegalArgumentException if {@code count} is negative
      */
     public CountDownLatch(int count) {
@@ -221,11 +229,14 @@ public class CountDownLatch {
      * <li>has its interrupted status set on entry to this method; or
      * <li>is {@linkplain Thread#interrupt interrupted} while waiting,
      * </ul>
+     * 发生如下情况时 此方法才会返回
+     * 1.调用countDown()递减state = 0时
+     * 2.其他线程调用了interrupt()中断了当前线程
      * then {@link InterruptedException} is thrown and the current thread's
      * interrupted status is cleared.
      *
      * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     *                              while waiting
      */
     public void await() throws InterruptedException {
         sync.acquireSharedInterruptibly(1);
@@ -264,16 +275,21 @@ public class CountDownLatch {
      * <p>If the specified waiting time elapses then the value {@code false}
      * is returned.  If the time is less than or equal to zero, the method
      * will not wait at all.
+     * <p>
+     * 发生如下情况时 此方法才会返回
+     * 1.调用countDown()递减state = 0时 return true
+     * 2.其他线程调用了interrupt()中断了当前线程
+     * 3.timeout时间过后 return false
      *
      * @param timeout the maximum time to wait
-     * @param unit the time unit of the {@code timeout} argument
+     * @param unit    the time unit of the {@code timeout} argument
      * @return {@code true} if the count reached zero and {@code false}
-     *         if the waiting time elapsed before the count reached zero
+     * if the waiting time elapsed before the count reached zero
      * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     *                              while waiting
      */
     public boolean await(long timeout, TimeUnit unit)
-        throws InterruptedException {
+            throws InterruptedException {
         return sync.tryAcquireSharedNanos(1, unit.toNanos(timeout));
     }
 
@@ -284,7 +300,8 @@ public class CountDownLatch {
      * <p>If the current count is greater than zero then it is decremented.
      * If the new count is zero then all waiting threads are re-enabled for
      * thread scheduling purposes.
-     *
+     * <p>
+     * 该方法会递减state 当state = 0时唤醒所有因await()而被阻塞的线程
      * <p>If the current count equals zero then nothing happens.
      */
     public void countDown() {
