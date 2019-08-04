@@ -26,7 +26,12 @@
 package java.text;
 
 import java.util.Calendar;
-import static java.util.GregorianCalendar.*;
+
+import static java.util.GregorianCalendar.DAY_OF_WEEK;
+import static java.util.GregorianCalendar.FIELD_COUNT;
+import static java.util.GregorianCalendar.SUNDAY;
+import static java.util.GregorianCalendar.WEEK_OF_YEAR;
+import static java.util.GregorianCalendar.YEAR;
 
 /**
  * {@code CalendarBuilder} keeps field-value pairs for setting
@@ -102,7 +107,7 @@ class CalendarBuilder {
 
     Calendar establish(Calendar cal) {
         boolean weekDate = isSet(WEEK_YEAR)
-                            && field[WEEK_YEAR] > field[YEAR];
+                && field[WEEK_YEAR] > field[YEAR];
         if (weekDate && !cal.isWeekDateSupported()) {
             // Use YEAR instead
             if (!isSet(YEAR)) {
@@ -111,9 +116,15 @@ class CalendarBuilder {
             weekDate = false;
         }
 
+        /**
+         * 重置日期对象Calendar
+         */
         cal.clear();
         // Set the fields from the min stamp to the max stamp so that
         // the field resolution works in the Calendar.
+        /**
+         * 使用calb中的属性设置Calendar
+         */
         for (int stamp = MINIMUM_USER_STAMP; stamp < nextStamp; stamp++) {
             for (int index = 0; index <= maxFieldIndex; index++) {
                 if (field[index] == stamp) {
@@ -126,7 +137,7 @@ class CalendarBuilder {
         if (weekDate) {
             int weekOfYear = isSet(WEEK_OF_YEAR) ? field[MAX_FIELD + WEEK_OF_YEAR] : 1;
             int dayOfWeek = isSet(DAY_OF_WEEK) ?
-                                field[MAX_FIELD + DAY_OF_WEEK] : cal.getFirstDayOfWeek();
+                    field[MAX_FIELD + DAY_OF_WEEK] : cal.getFirstDayOfWeek();
             if (!isValidDayOfWeek(dayOfWeek) && cal.isLenient()) {
                 if (dayOfWeek >= 8) {
                     dayOfWeek--;
