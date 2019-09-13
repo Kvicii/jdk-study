@@ -104,6 +104,9 @@ public class Executors {
      * guarantees about the order in which submitted tasks are
      * executed.
      *
+     * Java8新增的并行任务线程池
+     * 不指定参数 将以当前机器CPU个数个线程运行 该线程池不保证任务执行的顺序性 多个任务之间是并行处理的
+     *
      * @param parallelism the targeted parallelism level
      * @return the newly created thread pool
      * @throws IllegalArgumentException if {@code parallelism <= 0}
