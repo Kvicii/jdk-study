@@ -106,7 +106,8 @@ public class Executors {
      *
      * Java8新增的并行任务线程池
      * 不指定参数 将以当前机器CPU个数个线程运行 该线程池不保证任务执行的顺序性 多个任务之间是并行处理的
-     * 若主程序没有任何等待或休眠操作 会随着主程序的退出而退出
+     * 若主程序没有任何等待或休眠操作
+     * 会随着主程序的退出而退出
      *
      * @param parallelism the targeted parallelism level
      * @return the newly created thread pool
